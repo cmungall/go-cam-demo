@@ -8,7 +8,7 @@ window.searchSchema = {
                 {
                     field: "taxon", 
                     label: "Taxon",
-                    type: "string",
+                    type: "curie",
                     sortBy: "count"
                 },
                 {
@@ -37,8 +37,9 @@ window.searchSchema = {
                 },
             ],
             displayFields: [
+                { field: "id", label: "Model ID", type: "curie" },
                 { field: "title", label: "title", type: "string" },
-                { field: "taxon", label: "Taxon", type: "string" },
+                { field: "taxon", label: "Taxon", type: "curie" },
                 { field: "status", label: "Status", type: "string" },
                 { field: "model_activity_enabled_by_term_ids", label: "Genes", type: "array" },
                 { field: "model_activity_part_of_rollup_label", label: "BP", type: "array" },
