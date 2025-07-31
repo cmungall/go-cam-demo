@@ -273,6 +273,117 @@
             grid-column: 1 / -1;
         }
 
+        /* Slider styles */
+        .slider-container {
+            padding: 10px 0;
+        }
+
+        .slider-values {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 14px;
+            color: #4a5568;
+        }
+
+        .slider-wrapper {
+            position: relative;
+            height: 40px;
+            margin-bottom: 15px;
+        }
+
+        .slider-track {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 100%;
+            height: 6px;
+            background: #e2e8f0;
+            border-radius: 3px;
+        }
+
+        .slider-range {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            height: 6px;
+            background: #667eea;
+            border-radius: 3px;
+            pointer-events: none;
+        }
+
+        .slider {
+            position: absolute;
+            width: 100%;
+            top: 50%;
+            transform: translateY(-50%);
+            -webkit-appearance: none;
+            appearance: none;
+            height: 6px;
+            background: transparent;
+            outline: none;
+            pointer-events: none;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #667eea;
+            border: 3px solid white;
+            border-radius: 50%;
+            cursor: pointer;
+            pointer-events: all;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+            transition: all 0.2s ease;
+        }
+
+        .slider::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+            box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+        }
+
+        .slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: #667eea;
+            border: 3px solid white;
+            border-radius: 50%;
+            cursor: pointer;
+            pointer-events: all;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+            transition: all 0.2s ease;
+        }
+
+        .slider::-moz-range-thumb:hover {
+            transform: scale(1.1);
+            box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+        }
+
+        .slider-input-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .slider-input {
+            width: 70px;
+            padding: 6px 10px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 14px;
+            text-align: center;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        .slider-input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+        }
+
         @media (max-width: 768px) {
             .main-content {
                 flex-direction: column;
@@ -464,6 +575,19 @@
                     }
                 });
                 
+                // Add slider event listeners
+                document.addEventListener('input', (e) => {
+                    if (e.target.classList.contains('slider') || e.target.classList.contains('slider-input')) {
+                        this.handleSliderChange(e.target);
+                    }
+                });
+                
+                document.addEventListener('change', (e) => {
+                    if (e.target.classList.contains('slider-input')) {
+                        this.handleSliderChange(e.target);
+                    }
+                });
+                
                 document.getElementById('clearFilters').addEventListener('click', () => {
                     this.clearAllFilters();
                 });
@@ -515,6 +639,83 @@
                 this.search();
             }
             
+            handleSliderChange(element) {
+                const field = element.dataset.field;
+                const type = element.dataset.type;
+                const value = parseInt(element.value);
+                
+                if (!this.currentFilters[field]) {
+                    const facetConfig = this.schema.facets.find(f => f.field === field);
+                    if (!facetConfig || facetConfig.type !== 'integer') return;
+                    
+                    // Initialize with full range
+                    const counts = this.facetIndex[field] || new Map();
+                    const values = Array.from(counts.keys()).map(k => parseInt(k)).filter(v => !isNaN(v));
+                    if (values.length === 0) return;
+                    
+                    const minValue = Math.min(...values);
+                    const maxValue = Math.max(...values);
+                    this.currentFilters[field] = { min: minValue, max: maxValue };
+                }
+                
+                // Update the filter value
+                this.currentFilters[field][type] = value;
+                
+                // Ensure min doesn't exceed max
+                if (this.currentFilters[field].min > this.currentFilters[field].max) {
+                    if (type === 'min') {
+                        this.currentFilters[field].max = value;
+                    } else {
+                        this.currentFilters[field].min = value;
+                    }
+                }
+                
+                // Update UI to reflect the change
+                this.updateSliderUI(field);
+                
+                // Debounce the search
+                clearTimeout(this.sliderTimeout);
+                this.sliderTimeout = setTimeout(() => {
+                    this.search();
+                }, 150);
+            }
+            
+            updateSliderUI(field) {
+                const range = this.currentFilters[field];
+                if (!range) return;
+                
+                // Update all sliders and inputs for this field
+                const sliders = document.querySelectorAll(`input[data-field="${field}"]`);
+                sliders.forEach(slider => {
+                    const type = slider.dataset.type;
+                    slider.value = range[type];
+                });
+                
+                // Update the visual range indicator
+                const facetContent = document.querySelector(`[data-field="${field}"]`).nextElementSibling;
+                if (facetContent) {
+                    const rangeElement = facetContent.querySelector('.slider-range');
+                    if (rangeElement) {
+                        const counts = this.facetIndex[field] || new Map();
+                        const values = Array.from(counts.keys()).map(k => parseInt(k)).filter(v => !isNaN(v));
+                        if (values.length > 0) {
+                            const minValue = Math.min(...values);
+                            const maxValue = Math.max(...values);
+                            const leftPercent = ((range.min - minValue) / (maxValue - minValue)) * 100;
+                            const widthPercent = ((range.max - range.min) / (maxValue - minValue)) * 100;
+                            rangeElement.style.left = `${leftPercent}%`;
+                            rangeElement.style.width = `${widthPercent}%`;
+                        }
+                    }
+                    
+                    // Update the display values
+                    const minDisplay = facetContent.querySelector('.slider-min');
+                    const maxDisplay = facetContent.querySelector('.slider-max');
+                    if (minDisplay) minDisplay.textContent = range.min;
+                    if (maxDisplay) maxDisplay.textContent = range.max;
+                }
+            }
+            
             search() {
                 const startTime = performance.now();
                 
@@ -560,9 +761,19 @@
                 
                 // Apply facet filters using pre-computed index
                 for (const [filterKey, filterValues] of Object.entries(this.currentFilters)) {
-                    if (filterValues.length > 0) {
-                        const facetConfig = this.schema.facets.find(f => f.field === filterKey);
+                    const facetConfig = this.schema.facets.find(f => f.field === filterKey);
+                    
+                    if (facetConfig && facetConfig.type === 'integer') {
+                        // Handle numeric range filters
+                        const range = filterValues;
+                        console.log(`Applying range filter for ${filterKey}:`, range);
                         
+                        resultIndices = new Set([...resultIndices].filter(idx => {
+                            const item = this.originalData[idx];
+                            const value = parseInt(item[filterKey]);
+                            return !isNaN(value) && value >= range.min && value <= range.max;
+                        }));
+                    } else if (filterValues.length > 0) {
                         if (facetConfig && facetConfig.type === 'array') {
                             // For array fields, use AND logic: item must have ALL selected values
                             console.log(`Applying AND logic for array field ${filterKey}:`, filterValues);
@@ -728,6 +939,78 @@
                         return '';
                     }
                     
+                    // Check if this facet is collapsed
+                    const isCollapsed = this.collapsedFacets.has(facetConfig.field);
+                    
+                    // Handle integer type facets with slider
+                    if (facetConfig.type === 'integer') {
+                        // Get min and max values
+                        const values = Array.from(counts.keys()).map(k => parseInt(k)).filter(v => !isNaN(v));
+                        if (values.length === 0) return '';
+                        
+                        const minValue = Math.min(...values);
+                        const maxValue = Math.max(...values);
+                        
+                        // Get current filter range
+                        const currentRange = this.currentFilters[facetConfig.field] || { min: minValue, max: maxValue };
+                        
+                        return `
+                            <div class="facet-group">
+                                <div class="facet-header" data-field="${facetConfig.field}">
+                                    <div class="facet-title">${facetConfig.label} (${minValue}-${maxValue})</div>
+                                    <div class="facet-toggle ${isCollapsed ? 'collapsed' : ''}">▼</div>
+                                </div>
+                                <div class="facet-content ${isCollapsed ? 'collapsed' : ''}">
+                                    <div class="slider-container">
+                                        <div class="slider-values">
+                                            <span class="slider-min">${currentRange.min}</span>
+                                            <span class="slider-max">${currentRange.max}</span>
+                                        </div>
+                                        <div class="slider-wrapper">
+                                            <input type="range" 
+                                                   class="slider slider-min-range" 
+                                                   min="${minValue}" 
+                                                   max="${maxValue}" 
+                                                   value="${currentRange.min}"
+                                                   data-field="${facetConfig.field}"
+                                                   data-type="min">
+                                            <input type="range" 
+                                                   class="slider slider-max-range" 
+                                                   min="${minValue}" 
+                                                   max="${maxValue}" 
+                                                   value="${currentRange.max}"
+                                                   data-field="${facetConfig.field}"
+                                                   data-type="max">
+                                            <div class="slider-track"></div>
+                                            <div class="slider-range" 
+                                                 style="left: ${((currentRange.min - minValue) / (maxValue - minValue)) * 100}%; 
+                                                        width: ${((currentRange.max - currentRange.min) / (maxValue - minValue)) * 100}%;">
+                                            </div>
+                                        </div>
+                                        <div class="slider-input-wrapper">
+                                            <input type="number" 
+                                                   class="slider-input slider-input-min" 
+                                                   min="${minValue}" 
+                                                   max="${maxValue}" 
+                                                   value="${currentRange.min}"
+                                                   data-field="${facetConfig.field}"
+                                                   data-type="min">
+                                            <span>-</span>
+                                            <input type="number" 
+                                                   class="slider-input slider-input-max" 
+                                                   min="${minValue}" 
+                                                   max="${maxValue}" 
+                                                   value="${currentRange.max}"
+                                                   data-field="${facetConfig.field}"
+                                                   data-type="max">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    // Regular facet handling for non-integer types
                     // Convert Map to array and sort
                     const buckets = Array.from(counts.entries())
                         .map(([key, count]) => ({ key, doc_count: count }))
@@ -761,9 +1044,6 @@
                         `;
                     }).join('');
                     
-                    // Check if this facet is collapsed
-                    const isCollapsed = this.collapsedFacets.has(facetConfig.field);
-                    
                     return `
                         <div class="facet-group">
                             <div class="facet-header" data-field="${facetConfig.field}">
@@ -788,21 +1068,24 @@
                 "title": "kctd10 in heart development PMID:24430697",
                 "taxon": "NCBITaxon:7955",
                 "status": "production",
-                "model_activity_part_of_rollup_label": ["anatomical structure development"]
+                "model_activity_part_of_rollup_label": ["anatomical structure development"],
+                "number_of_activities": 5
             },
             {
                 "id": "gomodel:568b0f9600000284", 
                 "title": "Antibacterial innate immune response in the intestine via MAPK cascade (C. elegans)",
                 "taxon": "NCBITaxon:6239",
                 "status": "production",
-                "model_activity_part_of_rollup_label": ["immune system process", "defense response to other organism"]
+                "model_activity_part_of_rollup_label": ["immune system process", "defense response to other organism"],
+                "number_of_activities": 12
             },
             {
                 "id": "gomodel:test123",
                 "title": "Test model for neural development",
                 "taxon": "NCBITaxon:10090", 
                 "status": "development",
-                "model_activity_part_of_rollup_label": ["nervous system development", "cell differentiation"]
+                "model_activity_part_of_rollup_label": ["nervous system development", "cell differentiation"],
+                "number_of_activities": 8
             }
         ];
 
