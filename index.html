@@ -273,115 +273,46 @@
             grid-column: 1 / -1;
         }
 
-        /* Slider styles */
-        .slider-container {
+        /* Numeric filter styles */
+        .numeric-filter-container {
             padding: 10px 0;
         }
 
-        .slider-values {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 10px;
-            font-size: 14px;
-            color: #4a5568;
+        .numeric-range-info {
+            font-size: 12px;
+            color: #718096;
+            margin-bottom: 12px;
+            text-align: center;
         }
 
-        .slider-wrapper {
-            position: relative;
-            height: 40px;
-            margin-bottom: 15px;
-        }
-
-        .slider-track {
-            position: absolute;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 100%;
-            height: 6px;
-            background: #e2e8f0;
-            border-radius: 3px;
-        }
-
-        .slider-range {
-            position: absolute;
-            top: 50%;
-            transform: translateY(-50%);
-            height: 6px;
-            background: #667eea;
-            border-radius: 3px;
-            pointer-events: none;
-        }
-
-        .slider {
-            position: absolute;
-            width: 100%;
-            top: 50%;
-            transform: translateY(-50%);
-            -webkit-appearance: none;
-            appearance: none;
-            height: 6px;
-            background: transparent;
-            outline: none;
-            pointer-events: none;
-        }
-
-        .slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 20px;
-            height: 20px;
-            background: #667eea;
-            border: 3px solid white;
-            border-radius: 50%;
-            cursor: pointer;
-            pointer-events: all;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-            transition: all 0.2s ease;
-        }
-
-        .slider::-webkit-slider-thumb:hover {
-            transform: scale(1.1);
-            box-shadow: 0 3px 8px rgba(0,0,0,0.3);
-        }
-
-        .slider::-moz-range-thumb {
-            width: 20px;
-            height: 20px;
-            background: #667eea;
-            border: 3px solid white;
-            border-radius: 50%;
-            cursor: pointer;
-            pointer-events: all;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-            transition: all 0.2s ease;
-        }
-
-        .slider::-moz-range-thumb:hover {
-            transform: scale(1.1);
-            box-shadow: 0 3px 8px rgba(0,0,0,0.3);
-        }
-
-        .slider-input-wrapper {
+        .numeric-input-wrapper {
             display: flex;
             align-items: center;
             gap: 10px;
             justify-content: center;
         }
 
-        .slider-input {
-            width: 70px;
-            padding: 6px 10px;
-            border: 1px solid #e2e8f0;
-            border-radius: 6px;
+        .numeric-input {
+            width: 80px;
+            padding: 8px 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
             font-size: 14px;
             text-align: center;
             outline: none;
             transition: all 0.2s ease;
+            background: white;
         }
 
-        .slider-input:focus {
+        .numeric-input:focus {
             border-color: #667eea;
-            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .numeric-separator {
+            color: #718096;
+            font-weight: 500;
+            font-size: 16px;
         }
 
         @media (max-width: 768px) {
@@ -440,6 +371,9 @@
                 
                 // Track collapsed facets
                 this.collapsedFacets = new Set();
+                
+                // Track slider timeout
+                this.sliderTimeout = null;
                 
                 try {
                     console.log('📚 Building search index...');
@@ -575,16 +509,16 @@
                     }
                 });
                 
-                // Add slider event listeners
+                // Add numeric input event listeners
                 document.addEventListener('input', (e) => {
-                    if (e.target.classList.contains('slider') || e.target.classList.contains('slider-input')) {
-                        this.handleSliderChange(e.target);
+                    if (e.target.classList.contains('numeric-input')) {
+                        this.handleNumericInputChange(e.target);
                     }
                 });
                 
                 document.addEventListener('change', (e) => {
-                    if (e.target.classList.contains('slider-input')) {
-                        this.handleSliderChange(e.target);
+                    if (e.target.classList.contains('numeric-input')) {
+                        this.handleNumericInputChange(e.target);
                     }
                 });
                 
@@ -639,7 +573,7 @@
                 this.search();
             }
             
-            handleSliderChange(element) {
+            handleNumericInputChange(element) {
                 const field = element.dataset.field;
                 const type = element.dataset.type;
                 const value = parseInt(element.value);
@@ -684,36 +618,12 @@
                 const range = this.currentFilters[field];
                 if (!range) return;
                 
-                // Update all sliders and inputs for this field
-                const sliders = document.querySelectorAll(`input[data-field="${field}"]`);
-                sliders.forEach(slider => {
-                    const type = slider.dataset.type;
-                    slider.value = range[type];
+                // Update all numeric inputs for this field
+                const inputs = document.querySelectorAll(`input[data-field="${field}"]`);
+                inputs.forEach(input => {
+                    const type = input.dataset.type;
+                    input.value = range[type];
                 });
-                
-                // Update the visual range indicator
-                const facetContent = document.querySelector(`[data-field="${field}"]`).nextElementSibling;
-                if (facetContent) {
-                    const rangeElement = facetContent.querySelector('.slider-range');
-                    if (rangeElement) {
-                        const counts = this.facetIndex[field] || new Map();
-                        const values = Array.from(counts.keys()).map(k => parseInt(k)).filter(v => !isNaN(v));
-                        if (values.length > 0) {
-                            const minValue = Math.min(...values);
-                            const maxValue = Math.max(...values);
-                            const leftPercent = ((range.min - minValue) / (maxValue - minValue)) * 100;
-                            const widthPercent = ((range.max - range.min) / (maxValue - minValue)) * 100;
-                            rangeElement.style.left = `${leftPercent}%`;
-                            rangeElement.style.width = `${widthPercent}%`;
-                        }
-                    }
-                    
-                    // Update the display values
-                    const minDisplay = facetContent.querySelector('.slider-min');
-                    const maxDisplay = facetContent.querySelector('.slider-max');
-                    if (minDisplay) minDisplay.textContent = range.min;
-                    if (maxDisplay) maxDisplay.textContent = range.max;
-                }
             }
             
             search() {
@@ -961,46 +871,26 @@
                                     <div class="facet-toggle ${isCollapsed ? 'collapsed' : ''}">▼</div>
                                 </div>
                                 <div class="facet-content ${isCollapsed ? 'collapsed' : ''}">
-                                    <div class="slider-container">
-                                        <div class="slider-values">
-                                            <span class="slider-min">${currentRange.min}</span>
-                                            <span class="slider-max">${currentRange.max}</span>
+                                    <div class="numeric-filter-container">
+                                        <div class="numeric-range-info">
+                                            Range: ${minValue} to ${maxValue}
                                         </div>
-                                        <div class="slider-wrapper">
-                                            <input type="range" 
-                                                   class="slider slider-min-range" 
+                                        <div class="numeric-input-wrapper">
+                                            <input type="number" 
+                                                   class="numeric-input numeric-input-min" 
                                                    min="${minValue}" 
                                                    max="${maxValue}" 
                                                    value="${currentRange.min}"
+                                                   placeholder="Min"
                                                    data-field="${facetConfig.field}"
                                                    data-type="min">
-                                            <input type="range" 
-                                                   class="slider slider-max-range" 
+                                            <span class="numeric-separator">-</span>
+                                            <input type="number" 
+                                                   class="numeric-input numeric-input-max" 
                                                    min="${minValue}" 
                                                    max="${maxValue}" 
                                                    value="${currentRange.max}"
-                                                   data-field="${facetConfig.field}"
-                                                   data-type="max">
-                                            <div class="slider-track"></div>
-                                            <div class="slider-range" 
-                                                 style="left: ${((currentRange.min - minValue) / (maxValue - minValue)) * 100}%; 
-                                                        width: ${((currentRange.max - currentRange.min) / (maxValue - minValue)) * 100}%;">
-                                            </div>
-                                        </div>
-                                        <div class="slider-input-wrapper">
-                                            <input type="number" 
-                                                   class="slider-input slider-input-min" 
-                                                   min="${minValue}" 
-                                                   max="${maxValue}" 
-                                                   value="${currentRange.min}"
-                                                   data-field="${facetConfig.field}"
-                                                   data-type="min">
-                                            <span>-</span>
-                                            <input type="number" 
-                                                   class="slider-input slider-input-max" 
-                                                   min="${minValue}" 
-                                                   max="${maxValue}" 
-                                                   value="${currentRange.max}"
+                                                   placeholder="Max"
                                                    data-field="${facetConfig.field}"
                                                    data-type="max">
                                         </div>

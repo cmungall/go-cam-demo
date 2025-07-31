@@ -18,8 +18,26 @@ window.searchSchema = {
                     sortBy: "count"
                 },
                 {
+                    field: "model_activity_occurs_in_rollup_label",
+                    label: "Location",
+                    type: "array",
+                    sortBy: "count"
+                },
+                {
                     field: "number_of_activities",
                     label: "Num annotons",
+                    type: "integer",
+                    sortBy: "count"
+                },
+                {
+                    field: "length_of_longest_causal_association_path",
+                    label: "Longest path",
+                    type: "integer",
+                    sortBy: "count"
+                },
+                {
+                    field: "number_of_strongly_connected_components",
+                    label: "Num SCCs",
                     type: "integer",
                     sortBy: "count"
                 },
@@ -43,7 +61,11 @@ window.searchSchema = {
                 { field: "status", label: "Status", type: "string" },
                 { field: "model_activity_enabled_by_term_ids", label: "Genes", type: "array" },
                 { field: "model_activity_part_of_rollup_label", label: "BP", type: "array" },
+                { field: "model_activity_occurs_in_rollup_label", label: "BP", type: "array" },
+                { field: "model_activity_enabled_by_terms_id", label: "Genes", type: "array" },
                 { field: "number_of_activities", label: "Num annotons", type: "integer" },
+                { field: "length_of_longest_causal_association_path", label: "Longest path", type: "integer" },
+                { field: "number_of_strongly_connected_components", label: "Num SCCs", type: "integer" },
             ]
         };
 
